@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A+V</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#07070a;
+    --card:rgba(255,255,255,0.03);
+    --accent:#ff6fb5;
+    --muted:rgba(255,255,255,0.12);
+  }
+  *{box-sizing:border-box}
+  body {
+    margin:0;
+    font-family: 'Montserrat', system-ui, -apple-system, "Segoe UI", Roboto, 'Helvetica Neue', Arial;
+    background: radial-gradient(1200px 600px at 10% 10%, rgba(255,111,181,0.03), transparent), var(--bg);
+    color:#f6eef8;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 20px;
+  }
+  .stage{ width:100%; max-width:860px; perspective:1000px; }
+  header{ text-align:center; margin-bottom:18px; }
+  h1{ margin:0; font-weight:700; font-size:28px; color:#fff; }
+  p.lead{ margin:6px 0 0 0; color:var(--muted); font-weight:300; }
+  .container{
+    background:var(--card);
+    border-radius:14px;
+    padding:26px;
+    box-shadow:0 8px 30px rgba(2,2,8,0.6);
+    border:1px solid rgba(255,255,255,0.03);
+    position:relative;
+    overflow:hidden;
+    transition:transform .25s ease, box-shadow .25s ease;
+  }
+  button.primary{
+    background:transparent;
+    color:var(--accent);
+    border:1px solid rgba(255,111,181,0.15);
+    padding:10px 18px;
+    border-radius:10px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .22s ease;
+    backdrop-filter:blur(4px);
+  }
+  button.primary:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(255,111,181,0.06)}
+  button.ghost{
+    background:transparent;
+    color:var(--muted);
+    border:1px dashed rgba(255,255,255,0.04);
+    padding:9px 16px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:500;
+  }
+  .idea-box{
+    margin-top:18px;
+    padding:20px;
+    border-radius:10px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);
+    min-height:88px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    font-size:18px;
+    line-height:1.4;
+    color:#ffeef9;
+    transform-origin:center;
+  }
+  .meta{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    margin-top:14px;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .particle{
+    position:absolute;
+    width:12px;height:12px;
+    opacity:0;
+    pointer-events:none;
+    transform:translate3d(0,0,0);
+  }
+  .heart{
+    width:12px;height:12px;background:var(--accent);clip-path:polygon(50% 0%, 61% 7%, 66% 15%, 66% 24%, 50% 38%, 34% 24%, 34% 15%, 39% 7%);
+    border-radius:2px;
+    box-shadow:0 4px 18px rgba(255,111,181,0.12);
+  }
+  @keyframes popIn{
+    from{transform:scale(0.96);opacity:0}
+    to{transform:scale(1);opacity:1}
+  }
+  .idea-box.pop{animation:popIn .36s cubic-bezier(.2,.9,.3,1)}
+  @media (max-width:600px){
+    .container{padding:18px;border-radius:12px}
+    h1{font-size:22px}
+    .idea-box{font-size:16px}
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <header>
+    <h1>Идеи для нас с Виталиной типа</h1>
+    <p class="lead">Вопросы для любимой, задания и маленькие ритуалы — чтобы быть ближе, несмотря на километры.</p>
+  </header>
+
+  <main class="container" id="app">
+    <div style="display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;">
+      <button class="primary" id="newIdea">Получить идею ❤️</button>
+      <button class="ghost" id="romanticSet">Набор для вечера</button>
+      <button class="ghost" id="toggleHearts">Кружочки: вкл/выкл</button>
+    </div>
+
+  <div class="idea-box" id="ideaBox">Нажми «Получить идею», чтобы начать.</div>
+    <div class="meta">💬 Сгенерировано случайно · ✨ Плавные анимации включены</div>
+    <div id="particles" aria-hidden="true"></div>
+
+    <!-- Аудио -->
+    <audio id="clickSound1" src="./sounds/click1.mp3" preload="auto"></audio>
+  </main>
+</div>
+
+<script>
+const ideaBox = document.getElementById('ideaBox');
+const newIdeaBtn = document.getElementById('newIdea');
+const particlesRoot = document.getElementById('particles');
+const toggleHeartsBtn = document.getElementById('toggleHearts');
+const romanticSetBtn = document.getElementById('romanticSet');
+let heartsEnabled = true;
+
+const sounds = [
+  document.getElementById('clickSound1'),
+  document.getElementById('clickSound2'),
+  document.getElementById('clickSound3')
+];
+
+let allIdeas = [];
+let availableIdeas = [];
+
+// Подгрузка JSON
+fetch('./data/ideas.json')
+  .then(res => res.json())
+  .then(data => {
+    allIdeas = [].concat(
+      data.defaultIdeas||[],
+      data.ideasDay||[],
+      data.ideasTalk||[],
+      data.ideasFun||[],
+      data.ideasDeep||[],
+      data.ideasDreams||[]
+    );
+    resetAvailableIdeas();
+  })
+  .catch(err=>{
+    console.warn("Не удалось загрузить ideas.json");
+    allIdeas = ["Устроить параллельный ужин и сделать друг другу тосты."];
+    resetAvailableIdeas();
+  });
+
+function resetAvailableIdeas() {
+  availableIdeas = [...allIdeas];
+}
+
+function getRandomIdea() {
+  if(availableIdeas.length === 0) resetAvailableIdeas();
+  const idx = Math.floor(Math.random()*availableIdeas.length);
+  return availableIdeas.splice(idx,1)[0];
+}
+
+function showIdea() {
+  const text = getRandomIdea();
+  ideaBox.classList.remove('pop'); void ideaBox.offsetWidth;
+  ideaBox.textContent = text;
+  ideaBox.classList.add('pop');
+  if(heartsEnabled) spawnHearts(6);
+}
+
+// Проигрываем случайный милый звук
+function playClickSound() {
+  const s = sounds[Math.floor(Math.random() * sounds.length)];
+  s.currentTime = 0;
+  s.play();
+}
+
+newIdeaBtn.addEventListener('click', ()=>{
+  playClickSound();
+  showIdea();
+});
+
+toggleHeartsBtn.addEventListener('click', ()=>{
+  heartsEnabled = !heartsEnabled;
+  toggleHeartsBtn.textContent = heartsEnabled ? 'Сердечки: вкл/выкл' : 'Сердечки: вкл/выкл';
+});
+
+romanticSetBtn.addEventListener('click', ()=>{
+  const sequence = [
+    'Отправьте друг другу голосовое сообщение (30–60 сек) о том, что чувствуете сейчас.',
+    'Выберите одну песню и одновременно слушайте её вслух, отправив мелодию друг другу.',
+    'Обменяйтесь 3 милыми фотографиями из текущего дня и расскажите к ним истории.'
+  ];
+  let i=0;
+  const run = ()=>{
+    if(i>=sequence.length) return;
+    ideaBox.classList.remove('pop'); void ideaBox.offsetWidth;
+    ideaBox.textContent = sequence[i];
+    ideaBox.classList.add('pop');
+    if(heartsEnabled) spawnHearts(10);
+    i++;
+    setTimeout(run,3800);
+  };
+  run();
+});
+
+// Hearts
+function spawnHearts(count=8){
+  for(let i=0;i<count;i++){
+    const el = document.createElement('div');
+    el.className='particle';
+    el.style.left = (20 + Math.random()*60) + '%';
+    el.style.bottom = (6 + Math.random()*6) + '%';
+    el.style.opacity = 1;
+    const heart = document.createElement('div');
+    heart.className='heart';
+    const s = 8 + Math.random()*12;
+    heart.style.width = s+'px';
+    heart.style.height = s+'px';
+    el.appendChild(heart);
+    particlesRoot.appendChild(el);
+    const dx = (Math.random()*120 - 60);
+    const duration = 1400 + Math.random()*900;
+    const rotate = (Math.random()*60 - 30);
+    el.animate([
+      {transform:'translateY(0px) translateX(0px) rotate(0deg)', opacity:1},
+      {transform:`translateY(-${80 + Math.random()*80}px) translateX(${dx}px) rotate(${rotate}deg)`, opacity:0}
+    ],{duration:duration, easing:'cubic-bezier(.2,.8,.2,1)'}).onfinish = ()=> el.remove();
+  }
+}
+
+// Parallax
+document.addEventListener('mousemove', (e)=>{
+  const rect = app.getBoundingClientRect();
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top + rect.height/2;
+  const dx = (e.clientX - cx)/40;
+  const dy = (e.clientY - cy)/40;
+  app.style.transform = `translate3d(${-dx}px,${-dy}px,0)`;
+});
+
+setInterval(()=>{ if(heartsEnabled) spawnHearts(3); },4200);
+
+setTimeout(showIdea,600);
+</script>
+</body>
+</html>
